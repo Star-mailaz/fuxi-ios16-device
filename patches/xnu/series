@@ -199,3 +199,5 @@
 0115-fuxi-clang-typed-free-sites.patch
 
 0116-fuxi-iig-kernel-content.patch
+
+0117-fuxi-bcm2837-source-asm-pmap.patch
