@@ -52,7 +52,8 @@ PY
 # Kernel builds use -nostdinc; HFS's kext-config.h needs the SDK's target macros.
 # Local adaptation (fuxi, see ../series): skip the header where there is no macOS SDK, so the
 # stage still completes on a Linux host.
-if hfs_sdk=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null); then
+if hfs_sdk=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null) &&
+   [ -f "$hfs_sdk/usr/include/TargetConditionals.h" ]; then
     cp "$hfs_sdk/usr/include/TargetConditionals.h" bsd/sweet_hfs/
 else
     echo 'no macosx SDK on this host; TargetConditionals.h not staged' >&2

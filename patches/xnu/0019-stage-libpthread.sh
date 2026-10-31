@@ -63,7 +63,8 @@ PY
 # Local adaptation (fuxi, see ../series): the SDK header is a convenience for compiles made
 # from outside the kernel build; the kernel build itself uses -nostdinc. Skip it where there is
 # no macOS SDK so the stage still completes on a Linux host.
-if pthread_sdk=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null); then
+if pthread_sdk=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null) &&
+   [ -f "$pthread_sdk/usr/include/TargetConditionals.h" ]; then
     cp "$pthread_sdk/usr/include/TargetConditionals.h" bsd/pthread/sweet_libpthread/
 else
     echo 'no macosx SDK on this host; TargetConditionals.h not staged' >&2

@@ -1,0 +1,22 @@
+--- a/iokit/IOKit/IOLib.h
++++ b/iokit/IOKit/IOLib.h
+@@ -811,7 +811,8 @@
+ 	}                                                           \
+ 	void type::operator delete(void *mem, size_t size __unused) \
+ 	{                                                           \
+-	        IOFreeType(mem, type);                                    \
++	        type *elem = (type *)mem;                                    \
++	        IOFreeType(elem, type);                                    \
+ 	}
+ 
+ 
+@@ -866,7 +867,8 @@
+ 	}                                                     \
+ 	void operator delete(void *mem, size_t size __unused) \
+ 	{                                                     \
+-	        IOFreeType(mem, type);                            \
++	        type *elem = (type *)mem;                            \
++	        IOFreeType(elem, type);                            \
+ 	} \
+ 	__IOAddTypedOperatorsSentinel(type)
+ 
