@@ -1,0 +1,55 @@
+# The iig shipped with a current Xcode generates the post-xnu-10002 IORPC layout:
+# every send stub fills
+#   .kernelContent = &buf.msg.content.__hdr
+# and every dispatch stub reads
+#   IORPCMessage * msg = rpc.kernelContent;
+# instead of recomputing the content pointer with IORPCMessageFromMach(). The 8796
+# struct has no such member, so every generated *.iig.cpp stops with
+#   error: no member named 'kernelContent' in 'IORPC'
+# and the kernel part of the tree cannot be built by any current toolchain.
+#
+# Declaring the member and filling it where the kernel builds the IORPC restores
+# exactly the pointer the generated code used to compute for itself
+# (both sites set it to the value of IORPCMessageFromMach(msgin, false)), so the
+# layout the stubs see is unchanged: only the way they obtain it is.
+
+--- a/iokit/DriverKit/IORPC.h
++++ b/iokit/DriverKit/IORPC.h
+@@ -224,6 +224,7 @@
+ 	IORPCMessageMach * reply;
+ 	uint32_t           sendSize;
+ 	uint32_t           replySize;
++	IORPCMessage     * kernelContent;   /* kernel copy of the message content */
+ };
+ typedef struct IORPC IORPC;
+ 
+--- a/iokit/IOKit/IORPC.h
++++ b/iokit/IOKit/IORPC.h
+@@ -224,6 +224,7 @@
+ 	IORPCMessageMach * reply;
+ 	uint32_t           sendSize;
+ 	uint32_t           replySize;
++	IORPCMessage     * kernelContent;   /* kernel copy of the message content */
+ };
+ typedef struct IORPC IORPC;
+ 
+--- a/iokit/Kernel/IOUserServer.cpp
++++ b/iokit/Kernel/IOUserServer.cpp
+@@ -3209,7 +3209,8 @@
+ 		msgout = (typeof(msgout))ikm_header(replykmsg);
+ 	}
+ 
+-	IORPC rpc = { .message = msgin, .reply = msgout, .sendSize = msgin->msgh.msgh_size, .replySize = replyAlloc };
++	IORPC rpc = { .message = msgin, .reply = msgout, .sendSize = msgin->msgh.msgh_size, .replySize = replyAlloc,
++	            .kernelContent = message };
+ 
+ 	if (object) {
+ 		kern_allocation_name_t prior;
+@@ -3358,6 +3359,7 @@
+ 	rpc.sendSize  = mach->msgh.msgh_size;
+ 	rpc.reply     = (IORPCMessageMach *) (p + inSize);
+ 	rpc.replySize = ((uint32_t) (sizeof(buffer.buffer) - inSize));    // inSize was checked
++	rpc.kernelContent = message;
+ 
+ 	message->objects[0] = 0;
+ 	if ((action = OSDynamicCast(OSAction, object))) {

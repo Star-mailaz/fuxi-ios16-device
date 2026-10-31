@@ -193,3 +193,9 @@
 0111-fuxi-user-profiler.patch
 0112-fuxi-registry-trace.patch
 0113-fuxi-audio.patch
+
+0114-fuxi-clang-void-pointer-delete.patch
+
+0115-fuxi-clang-typed-free-sites.patch
+
+0116-fuxi-iig-kernel-content.patch
