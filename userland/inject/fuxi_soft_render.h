@@ -21,8 +21,11 @@
 #ifndef FUXI_SOFT_RENDER_H
 #define FUXI_SOFT_RENDER_H
 
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <unistd.h>
 
 /*
  * The renderer this library implements. FUXI_RENDERER_SOFTWARE is the only value this file
@@ -74,10 +77,51 @@ struct fuxi_cache_offsets {
 	uintptr_t cm_personas_are_supported;
 };
 
-extern const struct fuxi_cache_offsets fuxi_cache_16_7_16;
+/*
+ * The table itself. Each library built from this directory has its own copy: a dylib is injected
+ * alone into its program (../inject.conf), and the SpringBoard library is not loaded together
+ * with the window server's, so neither can take the other's symbols. The definitions are the
+ * same; there is still one place to fill them in.
+ *
+ * The activation chain is not in this table: fuxi_activation.c finds its two methods by class
+ * name and selector at run time, so there is no address here for this cache to supply.
+ */
+static const struct fuxi_cache_offsets fuxi_cache_16_7_16 __attribute__((unused)) = {
+	.vt_apple_clcd_display = 0,
+	.clcd_is_ready = 0,
+	.clcd_ignore_update_p = 0,
+	.clcd_begin_update = 0,
+	.clcd_finish_update = 0,
+	.vt_eagl_server = 0,
+	.eagl_renderer = 0,
+	.eagl_render_update = 0,
+	.sb_snapshot_output_format = 0,
+	.cm_personas_are_supported = 0,
+};
 
-/* Log a line to the console (standard error). */
-void fuxi_say(const char *format, ...) __attribute__((format(printf, 1, 2)));
+/*
+ * Log a line to the console (standard error). Inline for the reason the table is: both libraries
+ * speak, and one is not loaded with the other.
+ */
+static inline void fuxi_say(const char *format, ...) __attribute__((format(printf, 1, 2)));
+
+static inline void
+fuxi_say(const char *format, ...)
+{
+	char line[256];
+	va_list ap;
+	int n;
+
+	va_start(ap, format);
+	n = vsnprintf(line, sizeof(line), format, ap);
+	va_end(ap);
+	if (n > (int)sizeof(line) - 1) {
+		n = sizeof(line) - 1;
+	}
+	if (n > 0) {
+		write(2, line, (size_t)n);
+	}
+}
 
 /* The slide of the mapped cache, as the constructor found it. */
 uintptr_t fuxi_cache_slide(void);

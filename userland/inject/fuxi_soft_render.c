@@ -25,44 +25,10 @@
 extern const void *_dyld_get_shared_cache_range(size_t *length);
 
 /*
- * The offsets of the 16.7.16 (20H392) iPhone10,3 shared cache. A zero keeps its hook off:
- * fuxi_replace_virtual() then says so and returns NULL, and the caller carries on with
- * CoreAnimation's own behaviour. Nothing here is guessed from another iOS build; the
- * addresses are read out of this cache and the check in fuxi_replace_virtual() is what
- * proves they are the right ones.
+ * The table itself, and the log, are in fuxi_soft_render.h: this library and the SpringBoard
+ * one are injected separately, so each carries its own copy of both.
  */
-const struct fuxi_cache_offsets fuxi_cache_16_7_16 = {
-	.vt_apple_clcd_display = 0,
-	.clcd_is_ready = 0,
-	.clcd_ignore_update_p = 0,
-	.clcd_begin_update = 0,
-	.clcd_finish_update = 0,
-	.vt_eagl_server = 0,
-	.eagl_renderer = 0,
-	.eagl_render_update = 0,
-	.sb_snapshot_output_format = 0,
-	.cm_personas_are_supported = 0,
-};
-
 static uintptr_t slide;
-
-void
-fuxi_say(const char *format, ...)
-{
-	char line[256];
-	va_list ap;
-	int n;
-
-	va_start(ap, format);
-	n = vsnprintf(line, sizeof(line), format, ap);
-	va_end(ap);
-	if (n > (int)sizeof(line) - 1) {
-		n = sizeof(line) - 1;
-	}
-	if (n > 0) {
-		write(2, line, (size_t)n);
-	}
-}
 
 uintptr_t
 fuxi_cache_slide(void)

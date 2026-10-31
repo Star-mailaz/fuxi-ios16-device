@@ -6,7 +6,8 @@ usage: build-softrender-userland.py [--output DIR] [--sdk PATH]
 Two dynamic libraries, and nothing else:
 
   libFuxiSoftRender.dylib        inject/fuxi_soft_render.c        (window server, container managers)
-  libFuxiSpringBoardSoft.dylib   inject/fuxi_springboard_soft.c   (SpringBoard)
+  libFuxiSpringBoardSoft.dylib   inject/fuxi_springboard_soft.c   (SpringBoard: vibrant views, snapshots)
+                                 inject/fuxi_activation.c         (SpringBoard: activation, setup assistant)
 
 What this replaces, and what it deliberately does not: HakiOS's userland/build.sh compiles five
 libraries and a variable amount around them -- an OpenGL ES library over Mesa, a Metal bridge, a
@@ -31,7 +32,7 @@ RENDERER_SOFTWARE = 1
 
 SOURCES = {
     "libFuxiSoftRender.dylib": ["fuxi_soft_render.c"],
-    "libFuxiSpringBoardSoft.dylib": ["fuxi_springboard_soft.c"],
+    "libFuxiSpringBoardSoft.dylib": ["fuxi_springboard_soft.c", "fuxi_activation.c"],
 }
 
 FRAMEWORKS = {
