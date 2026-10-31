@@ -183,9 +183,15 @@ window_server_fixes(void)
 	    o->clcd_is_ready, my_is_ready);
 	orig_ignore_update_p = fuxi_replace_virtual("ignore_update_p", VSLOT(o->vt_apple_clcd_display, 0x138),
 	    o->clcd_ignore_update_p, my_ignore_update_p);
-	orig_begin_update = fuxi_replace_virtual("begin_update", VSLOT(o->vt_apple_clcd_display, 0x170),
+	/*
+	 * begin_update and finish_update moved by one slot between 16.5 and 20H392: the display
+	 * class gained update_interval_complexity() in front of them (+0x170 absolute), which is
+	 * where the 16.5 table put begin_update. These two numbers were read out of this cache's
+	 * own vtable (absolute +0x188 and +0x190, see check-cache-offsets.py), not carried over.
+	 */
+	orig_begin_update = fuxi_replace_virtual("begin_update", VSLOT(o->vt_apple_clcd_display, 0x178),
 	    o->clcd_begin_update, my_begin_update);
-	orig_finish_update = fuxi_replace_virtual("finish_update", VSLOT(o->vt_apple_clcd_display, 0x178),
+	orig_finish_update = fuxi_replace_virtual("finish_update", VSLOT(o->vt_apple_clcd_display, 0x180),
 	    o->clcd_finish_update, my_finish_update);
 	orig_renderer = fuxi_replace_virtual("renderer", VSLOT(o->vt_eagl_server, 0x1a0),
 	    o->eagl_renderer, my_renderer);
