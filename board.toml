@@ -77,6 +77,11 @@
 # patches/xnu/series carries its provenance. Reaching for the 10063 layer means a different OS
 # profile and a re-derived kernel, not a wider list here.
 "patch_series" = ["device:patches/xnu/series"]
+# The series starts with three stage scripts that add the upstream sources a later patch
+# edits (libpthread-514.100.2, BearSSL, hfs-627.100.6). They are gated on these two
+# variables and exit 0 without them, which would let the patches that need the staged
+# sources fail; patches.prepare() passes them in.
+"patch_env" = { "MACHINE_CONFIG" = "SWEET", "MACOS_VERSION" = "13.5" }
 
 
 ["firmware"]

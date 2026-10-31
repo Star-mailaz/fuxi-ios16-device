@@ -1,7 +1,195 @@
-# fuxi board patches, applied last (device:patches/xnu/series).
+# fuxi: device-side XNU patch series, GPU-free cut. 99 patches, in this order.
 #
-# The sweet-derived bring-up series (ios-sweet 0001-0081 in the old tree) is not listed here
-# yet: it has to be re-derived against the 8796.141.3 tree layer by layer, which is what
-# userland/ and the kernel port in this repository are being rebuilt for. Keep this file
-# comment-only until the first patch of that series is actually in this directory; a line
-# that names a missing file stops the kernel build with a path error.
+# Target: iOS 16.7.16 (20H392), xnu-8796.141.3, Darwin 22.6.0,
+#         apple-oss-distributions/xnu @ 1b191cb58250d0705d8a51287127505aa4bc0789.
+#
+# Consumer: unixnu/scripts/unixnu/patches.py.plan() treats every non-comment line
+# as a file name relative to this directory and prepare() runs `git apply` on it,
+# in order, inside the XNU work tree. A line that is not a git-applyable patch
+# aborts the kernel step, so the three stage scripts below cannot be listed here.
+#
+# Provenance
+#   0001-0081  ios-sweet @ 45263be, xnu/patches. Byte-identical (81/81 `cmp`) to
+#              the copies the old fuxi tree shipped, i.e. the exact combination
+#              that reached SpringBoard on hardware. Copied, not re-derived.
+#   0082-0113  fuxi's own layer from /home/mai/fuxi-build/src/xnu/patches
+#              (0094 never existed; the old tree skips it).
+#   The three 00xx-stage-*.sh next to this file are the dxb stage scripts from
+#   the same directory, unchanged.
+#
+# Stage scripts MUST run in the work tree before the first patch. series cannot
+# express them (see above), so they are named here and the invoking step has to
+# execute them:
+#   0019-stage-libpthread.sh  libpthread-514.100.2 @ a6c70ca0 -> bsd/pthread/sweet_libpthread
+#                             required by 0019
+#   0020-stage-bearssl.sh     BearSSL 7bea48e5 -> libkern/crypto/sweet_bearssl
+#                             required by 0020, and by 0027/0032/0033 to compile
+#   0026-stage-hfs.sh         hfs-627.100.6 @ 31d5ec23 -> bsd/sweet_hfs
+#                             required by 0026, 0031, 0041, 0052
+#   Environment: the scripts exit 0 without doing anything unless
+#   MACHINE_CONFIG=SWEET, and exit 1 unless MACOS_VERSION=13.5, so the caller must
+#   export MACHINE_CONFIG=SWEET MACOS_VERSION=13.5 (their SWEET guard is the dxb
+#   convention; the staged sources are guarded by CONFIG_* and FUXI in the
+#   patches, not by that name). They also copy TargetConditionals.h out of the
+#   macOS SDK via `xcrun --sdk macosx --show-sdk-path`; on the Linux kernel path
+#   that xcrun is the shim installed by scripts/linux/setup-toolchain.py. Each
+#   script refuses to overwrite an existing target directory, so it is only safe
+#   on a freshly prepared work tree, which is what patches.prepare() clones.
+#   patches.py has no hook for them; integration proposal in the release report
+#   (.cache/xnu-series-release.md): let plan() pass `.sh` entries through to
+#   prepare(), which runs them with subprocess in the work tree before the loop.
+#
+# Excluded: 13 of the 31 fuxi patches (0082-0113). Seven are GPU by content, six are
+# non-GPU patches whose hunk context is anchored on an excluded GPU patch (they
+# do not apply with the GPU layer gone; they need a re-derivation, not fuzz).
+#   0096-fuxi-adreno                 Adreno A740 driver + gpu.c/gpu-*.h, ABI, DCVS
+#   0097-fuxi-touch-boost            CPU/touch boost; calls fuxi_gpu_access() and
+#                                    fuxi_gpu_start() from the Adreno driver, and
+#                                    its bsd/conf/files + SweetFramebuffer hunk
+#                                    context is the fuxi_adreno.c line 0096 adds
+#   0098-fuxi-native-adreno-abi      native Adreno/Metal ABI, FuxiAdrenoUserClient
+#   0100-sweet-execswap-gpu-abi-trace GPU ABI trace; edits FuxiAdrenoUserClient.cpp(0098)
+#   0101-fuxi-gpu-nc-cache-sync      pmap nc-alias sync for the GPU reservation
+#   0102-fuxi-gpu-backboardd-open    FuxiAdrenoUserClient.cpp (0098) only
+#   0108-fuxi-gpu-scanout            GPU scanout in SweetSurface + pe_serial
+#   --- blocked by the cut, not GPU themselves ---
+#   0099-fuxi-wlan    1 hunk of bsd/conf/files wants the `bsd/dev/fuxi_perf.c`
+#                     line 0097 adds; everything else applies
+#   0103-fuxi-kernel-h1  2 of 10 fuxi_keys.c hunks want 0097's fuxi_perf_input()
+#   0104-fuxi-wifi-ios   2 conf-file hunks want 0097's fuxi_perf.c and 0098's
+#                     FuxiAdrenoUserClient.cpp lines
+#   0106-fuxi-unixnu     sweet_ufs.c/vfs hunks apply; 6+ SweetFramebuffer hunks are
+#                     the GPU scanout path (needs 0096/0098/0108) -> split, GPU
+#                     part out, non-GPU part re-derived
+#   0107-fuxi-sys        5 of 7 sweet_amfi.c hunks want the 0103 edits
+#   0109-fuxi-backlight  the single iokit/conf/files.arm64 hunk wants 0098's
+#                     FuxiAdrenoUserClient.cpp line
+#
+# Ordering constraints inside the list (do not reorder): 0031 and 0041 only apply
+# after the HFS stage; 0019 needs the libpthread stage; 0027/0032/0033 need the
+# BearSSL stage to compile; 0022/0024/0052 follow 0021/0026; 0030/0034/0047/0054/
+# 0069 follow 0028; 0043/0044/0055 follow 0038; 0056/0067/0068/0079 follow 0046.
+#
+# The three stage scripts are the first three entries, and patches.prepare() runs
+# every ".sh" entry with bash in the work tree before it applies the next patch, so
+# the staged sources exist by the time 0019/0020/0026 need them. They are gated by
+# MACHINE_CONFIG=SWEET and MACOS_VERSION=13.5, which this device declares in
+# board.toml [kernel] patch_env; without them the scripts exit 0 and the patches
+# below fail. A series entry that is a script is run, not applied.
+#
+# Verified: on a --depth 1 clone of the commit above, after running the three
+# stage scripts, a patches.prepare()-equivalent loop (git apply --check, then
+# git apply, no --fuzz, no -C, no 3-way) applied all 99 patches clean, in order,
+# 99/99, and produced the same tree as an independent replay. Details and the
+# per-patch result table: .cache/xnu-series-release.md.
+# Digests for review (sha256):
+#   cat of the 99 patches below, in this order
+#     d2e0cd0ba26853a6e8f580b04b33ede889ac993d24e0f6ab64d5bf1fec7ad87c
+#   0019-stage-libpthread.sh 76db7a8c6db0fb4ce2dd70be21c2738749a60702951eb4542652389a693707c1
+#   0020-stage-bearssl.sh    7cb12c6b2e927289be24a0cc8a4da71072500e8138a0c47d862b0f6571c0f37f
+#   0026-stage-hfs.sh        40e0504ad4097be017f1c60efe99ea263a498f8c0ca2f8914b2e093d85710a5b
+
+# --- stages first: they add the upstream sources the patches below edit ---
+0019-stage-libpthread.sh
+0020-stage-bearssl.sh
+0026-stage-hfs.sh
+
+0001-new-clang-drop-removed-auto-var-init-flag.patch
+0002-new-clang-backport-UIO_STACKBUF.patch
+0003-sweet-framebuffer-serial-console.patch
+0004-sweet-machine-config.patch
+0005-non-pac-build-fixes.patch
+0006-sweet-master-config-open-source-asm-pmap.patch
+0007-sweet-stub-apple-internal-headers.patch
+0008-sweet-fill-closed-lib-gaps-kpc-stub.patch
+0009-sweet-drop-apple-soc-only-exports.patch
+0010-sweet-early-framebuffer-debug.patch
+0011-sweet-physmap-alignment-padding.patch
+0012-sweet-keep-debug-console-after-ttbr0.patch
+0013-sweet-kmem-rng-without-corecrypto.patch
+0014-sweet-kernel-hmac-prng.patch
+0015-sweet-unavailable-trust-cache-runtime.patch
+0016-sweet-device-tree-platform-expert.patch
+0017-sweet-device-tree-virtual-timer-irq.patch
+0018-sweet-boot-cpu-driver.patch
+0019-sweet-builtin-pthread.patch
+0020-sweet-portable-aes-cbc.patch
+0021-sweet-mockfs-ramdisk-root.patch
+0022-sweet-ramdisk-root-without-iomedia.patch
+0023-sweet-builtin-sha256-for-libkern.patch
+0024-sweet-mockfs-virtual-ramdisk-io.patch
+0025-sweet-builtin-amfi-no-entitlements.patch
+0026-sweet-builtin-hfs.patch
+0027-sweet-bearssl-md5.patch
+0028-sweet-ufs-root-device.patch
+0029-sweet-unsealed-root-volume.patch
+0030-sweet-ufs-writes.patch
+0031-sweet-read-write-root.patch
+0032-sweet-bearssl-sha1.patch
+0033-sweet-bearssl-sha384-sha512.patch
+0034-sweet-ufs-dma-above-4g.patch
+0035-sweet-amfi-entitlements-platform-binaries.patch
+0036-sweet-amfi-cs-signed.patch
+0037-sweet-config-bindfs.patch
+0038-sweet-applekeystore.patch
+0039-sweet-coredump-default-off.patch
+0040-sweet-iowatchdog.patch
+0041-sweet-hfs-link-notes.patch
+0042-sweet-short-exec-log.patch
+0043-sweet-console-crash-log.patch
+0044-sweet-crash-log-reason.patch
+0045-sweet-iowatchdog-pmu-primary.patch
+0046-sweet-iosurface-iomfb.patch
+0047-sweet-persistent-console-log.patch
+0048-sweet-devnull-tee.patch
+0049-sweet-iokit-trace.patch
+0050-sweet-sandbox-policy.patch
+0051-sweet-crash-heap-strings.patch
+0052-sweet-hfs-rename-swap.patch
+0053-sweet-crash-scan-springboard.patch
+0054-sweet-process-sampler.patch
+0055-sweet-aks-ext-state-sampler-depth.patch
+0056-sweet-fb-throttled-present.patch
+0057-sweet-no-ext-resolver.patch
+0058-sweet-hid-event-services.patch
+0059-sweet-iphone-identity.patch
+0060-sweet-keys-touch-drivers.patch
+0061-sweet-iphone-x-display-size.patch
+0062-sweet-touch-power-battery.patch
+0063-sweet-goodix-geni-packing.patch
+0064-sweet-priv-work-interval.patch
+0065-sweet-smp-psci.patch
+0066-sweet-crash-fault-region.patch
+0067-sweet-console-mute.patch
+0068-sweet-surface-lookup-cached.patch
+0069-sweet-ufs-faster.patch
+0070-sweet-pid-hibernate.patch
+0071-sweet-touch-edge.patch
+0072-sweet-usb-probe.patch
+0073-sweet-usb-device-ep0.patch
+0074-sweet-usb-vbus-override.patch
+0075-sweet-usb-ecm.patch
+0076-sweet-usb-rx-mbuf.patch
+0077-sweet-usb-live-log.patch
+0078-sweet-smp-8-cores.patch
+0079-sweet-display-power.patch
+0080-sweet-net-trace.patch
+0081-sweet-usb-link-state.patch
+0082-fuxi-ram-bringup.patch
+0083-fuxi-native-monitor-diagnostics.patch
+0084-fuxi-readonly-ufs-probe.patch
+0085-fuxi-ufs-sense-diagnostics.patch
+0086-fuxi-ufs-active-power.patch
+0087-fuxi-display-autorefresh.patch
+0088-fuxi-extent-root.patch
+0089-fuxi-stack-sampler.patch
+0090-fuxi-smp-seven-cores.patch
+0091-fuxi-touch-fts-spi.patch
+0092-fuxi-buttons.patch
+0093-fuxi-touch-display-polish.patch
+0095-sweet-noexec-bootarg.patch
+0105-fuxi-idle.patch
+0110-fuxi-union-lower-directory.patch
+0111-fuxi-user-profiler.patch
+0112-fuxi-registry-trace.patch
+0113-fuxi-audio.patch
