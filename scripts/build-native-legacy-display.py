@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
 """Bind an owned concrete backend to the unchanged original Legacy lifecycle."""
+# Adapted from UniXNU-sheng scripts/build-native-legacy-display.py, which sheng renamed to
+# build-gop-legacy-display.py in 1cab151 (2026-10-25); this copy is a further edit for fuxi,
+# visible in the NativePrelink/NativeGeniSpi/NativeNovatekTouch names. BSD-2-Clause-Patent,
+# Copyright (c) 2026, UniXNU contributors; see LICENSE and scripts/DISPLAY-ABI.md.
+#
+# Not in board.toml ["kernel"] archives. This builder and the mainline
+# scripts/audit-mobile-graphics-legacy.py it calls at line 16 are a pin on the *sheng iPadOS
+# 17.7.11* kernelcache: the audit wants build/xnu-prelink/native-owner-mobile-graphics-candidate.macho
+# (this file still looks in build/native-prelink), rejects any family __TEXT_EXEC sha256 other than
+# 2e044ee6...f9bd9b, and the bindings below are 17.7.11 addresses on a 358-slot vtable and a
+# 0x18a0-byte instance. This board prelinks iOS 16.7.16 (20H392), whose IOMobileGraphicsFamily is a
+# different class ABI (338 slots, base pair 252, abstract leaves [211,212,242,243,292,293,321,322,329]),
+# so every address, the slot indices and the instance offsets have to be re-derived first.
+# scripts/DISPLAY-ABI.md records the pins and the missing inputs. The build also needs macOS
+# xcrun/the iphoneos SDK and brew's llvm-objcopy, which a Linux host supplies differently.
 import hashlib
 import json
 from pathlib import Path

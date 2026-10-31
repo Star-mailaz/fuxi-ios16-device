@@ -26,17 +26,29 @@
 ["kernel"]
 "defconfig" = "fuxi_softrender_defconfig"
 # Archive builders of the kernel step, in order. Bring-up list, sheng's set minus the parts
-# that need an audit against the sheng iPadOS 17.7.11 kernelcache:
+# that cannot be qualified against this board's OS image:
 #   build-sheng-platform-power.py   sheng PMGR power domains, no fuxi port
 #   build-boot-progress.py          its guard requires the audited UFS/owner-root and virtio build
-#   build-native-legacy-display.py  is the CPU presentation archive (GopFramebuffer's
-#                                   NativeLegacyDisplay + NativeGOPPresenter wired into this
-#                                   device). It is not in the list yet because it runs
-#                                   scripts/audit-mobile-graphics-legacy.py, which is sheng's and
-#                                   not in this repository: that audit pins IOMobileGraphicsFamily
-#                                   from the sheng iPadOS 17.7.11 kernelcache and needs a candidate
-#                                   in build/native-prelink. Porting it to 16.7.16 is the next
-#                                   step, not a silent fallback to the GPU path.
+#   build-native-legacy-display.py  the CPU presentation archive (GopFramebuffer's
+#                                   NativeLegacyDisplay + NativeGOPresenter wired into this
+#                                   device). Not wired yet: it runs
+#                                   scripts/audit-mobile-graphics-legacy.py, which the UniXNU
+#                                   mainline carries as a pin on the *sheng iPadOS 17.7.11*
+#                                   kernelcache. That audit wants
+#                                   build/xnu-prelink/native-owner-mobile-graphics-candidate.macho
+#                                   and rejects a candidate whose IOMobileGraphicsFamily
+#                                   __TEXT_EXEC sha256 is not 2e044ee6...f9bd9b; the builder
+#                                   then binds 17.7.11 addresses (Legacy ctor and gMetaClass,
+#                                   the IOSurface getters, the vsync sender, slots 249/295/296/301)
+#                                   on a 358-slot vtable and a 0x18a0-byte instance. The 16.7.16
+#                                   (20H392) image this board prelinks is a different class ABI:
+#                                   338 legacy slots against 358, base pair 252 against 262,
+#                                   abstract leaves [211,212,242,243,292,293,321,322,329], and a
+#                                   different family __TEXT_EXEC sha256. Re-pinning is a
+#                                   re-derivation from that binary, not a hash edit. The pins, the
+#                                   derived 16.7.16 values and the inputs still missing are in
+#                                   scripts/DISPLAY-ABI.md; scripts/check-display-abi-inputs.py
+#                                   verifies the part the pinned kernelcache alone can answer.
 #   component:Adreno740             the GPU path this profile exists to leave out
 # corecrypto is built from source because ArmCpu requires the real source provider, and because
 # the first boot died in _SHA512_Init (far 0x40) with the prelinked callers from the 16.7.16
@@ -53,8 +65,18 @@
   "build-mockfs-fixture.py",
   "build-libpthread-kernel.py",
 ]
+# Config fragments come from all three shared layers: they are CONFIG_XNU_* names, not code.
 "config_fragments" = ["arch:configs/common.config", "soc:configs/sm8550.config", "os:configs/ios.config"]
-"patch_series" = ["arch:patches/xnu/series", "soc:patches/xnu/series", "os:patches/xnu/series", "device:patches/xnu/series"]
+# The patch series is the device one alone. Arrays replace inherited arrays, and the arch/soc/os
+# series are written for xnu-10063.141.1 (iPadOS 17): against the 8796.141.3 base this device
+# builds on, 13 of their 59 patches do not apply, 38 of them touch files the sweet series also
+# touches (bsd_init.c, KernelConfigTables.cpp, start.s, kern_exec.c), and the page size is
+# mutually exclusive -- SWEET.h defines __ARM_16K_PG__ where unixnu's native-4k-* patches take the
+# !__ARM_16K_PG__ branch of the same vm_map_set_page_shift. So this is not a merge candidate: the
+# sweet series plus fuxi's own is the combination that has run to a SpringBoard on hardware, and
+# patches/xnu/series carries its provenance. Reaching for the 10063 layer means a different OS
+# profile and a re-derived kernel, not a wider list here.
+"patch_series" = ["device:patches/xnu/series"]
 
 
 ["firmware"]
@@ -154,6 +176,12 @@
 # archive plugs into. Storage is parked: fuxi_softrender_defconfig keeps CONFIG_XNU_NATIVE_UFS
 # off because the storage classes collide with the prelinked IOStorageFamily kext, and the
 # mockfs fixture supplies the root volume instead.
+#
+# One imprecision to know about: ShengHidInput's dependency list brings in ShengNovatekTouch,
+# which is sheng's Novatek panel and not fuxi's touch controller. It is an embedded-stage board
+# driver, so it does not change the GPU-free property, but fuxi needs its own touch component
+# before touch is anything more than "the kernel queues events". Recorded here rather than
+# silently inherited.
 ["components"]
 "include" = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "GopFramebuffer", "ShengHidInput", "AppleKeyStoreState", "XnuPrelink", "DarwinBoot"]
 

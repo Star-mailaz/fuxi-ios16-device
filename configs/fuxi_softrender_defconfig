@@ -48,10 +48,16 @@ CONFIG_XNU_NATIVE_ADRENO=n
 
 # --- CPU presentation ------------------------------------------------------------------
 # The legacy display archive is the CPU compositing path (GopFramebuffer's
-# NativeLegacyDisplay + NativeGOPPresenter: present, swap, complete into the GOP buffer).
-# It stays off until scripts/audit-mobile-graphics-legacy.py pins IOMobileGraphicsFamily
-# against the 16.7.16 kernelcache instead of the sheng iPadOS 17.7.11 one; enabling it now
-# stops the archive build on that pin, which is the next step, not a silent fallback to GPU.
+# NativeLegacyDisplay + NativeGOPresenter: present, swap, complete into the GOP buffer).
+# It stays off because the archive cannot be qualified against this board's OS image yet:
+# its audit (UniXNU mainline scripts/audit-mobile-graphics-legacy.py) is a pin on the sheng
+# iPadOS 17.7.11 kernelcache - family __TEXT_EXEC sha256 2e044ee6...f9bd9b, 358-slot legacy
+# vtable, 0x18a0-byte instance - and the builder binds 17.7.11 addresses on top. iOS 16.7.16
+# (20H392) is a different class ABI (338 slots against 358, base pair 252 against 262,
+# abstract leaves [211,212,242,243,292,293,321,322,329]), and its prelink candidate and
+# runtime observation are not built on this host. Enabling it now only stops the archive
+# build; scripts/DISPLAY-ABI.md lists the pins and the missing inputs, and
+# scripts/check-display-abi-inputs.py verifies what the pinned kernelcache can answer.
 CONFIG_XNU_NATIVE_LEGACY_DISPLAY=n
 CONFIG_XNU_NATIVE_MOBILE_DISPLAY=n
 CONFIG_XNU_ARMVIRT_PLATFORM=n
