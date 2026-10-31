@@ -1,0 +1,59 @@
+# Kernel configuration of the fuxi software-render image: iOS 16.7.16 on a Xiaomi 13 with no
+# GPU driver. CONFIG_XNU_<NAME> becomes XNU_<NAME> for the kernel build.
+#
+# This file is the renderer profile the layering calls for: the GPU is absent because the
+# profile does not select it, not because sources carry #if 0 blocks. Selecting a GPU profile
+# later means another defconfig plus a component list that names Adreno740/AdrenoMetal.
+
+CONFIG_XNU_BUILD_ARCHIVES=y
+CONFIG_XNU_SOURCE_PTHREAD=y
+CONFIG_XNU_ARM_DT_PLATFORM=y
+CONFIG_XNU_ARMCPU=y
+# Parked while the board boots from the mockfs root: the storage classes collide with the
+# prelinked IOStorageFamily kext.
+CONFIG_XNU_NATIVE_UFS=n
+CONFIG_XNU_TRUST_CACHE_RUNTIME=y
+# The fixture does not build with the local Xcode 26.2 toolchain (kfree_type type assertion);
+# the board boots from the mockfs root, so the fixture is not needed.
+CONFIG_XNU_SOURCE_MOCKFS=y
+CONFIG_XNU_NATIVE_CS_HASH_CACHE=y
+CONFIG_XNU_DT_PANIC_REGION=y
+CONFIG_XNU_ZONE_PGZ_ALIGNMENT_PROBE=y
+CONFIG_XNU_NATIVE_ARCH_TIMER=y
+CONFIG_XNU_NATIVE_PAN=y
+
+CONFIG_XNU_SOURCE_CORECRYPTO14=y
+# Keep every crypto call on the source implementation. The first boot crashed inside
+# _SHA512_Init (far 0x40) because prelinked callers from the target kernelcache ran against
+# this build's digest tables. The hardware AES accelerator needs the prelinked crypto closure,
+# which is the mode that crashed: bring-up runs without it.
+CONFIG_XNU_NATIVE_AES=n
+# Requires NATIVE_AES in build-xnu-4k-baseline.sh, and it is only a root device.
+CONFIG_XNU_NATIVE_RAM_BLOCK=n
+CONFIG_XNU_CRYPTO_BOOTSTRAP="source"
+CONFIG_XNU_OWNER_DATA_VOLUME_UUID="18AB5557-DC2D-469B-8758-855E60F5B0DF"
+CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/fuxi-stub/libFuxiBringUpStub.a"
+# Bring-up: no virtio, no owner-trust chain, no boot progress. The archives that produce them
+# are not in board.toml, because they need the storage ABI audit evidence.
+CONFIG_XNU_NATIVE_VIRTIO_BLOCK=n
+CONFIG_XNU_OWNER_ROOT_AUDIT=n
+CONFIG_XNU_OWNER_ROOT_TRUST=n
+CONFIG_XNU_VERIFIED_ROOT_PROBE=n
+
+# --- GPU: absent by profile, not by #if 0 -----------------------------------------------
+# Adreno740, AdrenoPM4, AdrenoFirmware, AdrenoMetal, ArmSmmu4K and Sm8550Platform are not in
+# the component list of board.toml, so none of their archives is here.
+CONFIG_XNU_ADRENO_FIRMWARE_PROBE=n
+CONFIG_XNU_NATIVE_ADRENO=n
+
+# --- CPU presentation ------------------------------------------------------------------
+# The legacy display archive is the CPU compositing path (GopFramebuffer's
+# NativeLegacyDisplay + NativeGOPPresenter: present, swap, complete into the GOP buffer).
+# It stays off until scripts/audit-mobile-graphics-legacy.py pins IOMobileGraphicsFamily
+# against the 16.7.16 kernelcache instead of the sheng iPadOS 17.7.11 one; enabling it now
+# stops the archive build on that pin, which is the next step, not a silent fallback to GPU.
+CONFIG_XNU_NATIVE_LEGACY_DISPLAY=n
+CONFIG_XNU_NATIVE_MOBILE_DISPLAY=n
+CONFIG_XNU_ARMVIRT_PLATFORM=n
+# Live kernel status page on the framebuffer; needs the relaxed guard above.
+CONFIG_XNU_BOOT_PROGRESS=y

@@ -1,0 +1,32 @@
+# Daemons of the software-render bring-up: the smallest set of stock Darwin jobs that
+# reaches launchd -> backboardd -> SpringBoard with no GPU. Order is bring-up order and is the
+# order they are handed to launchd.
+#
+# Origin: HakiOS, oosexgang/hackios-xnu-userland, userland/build.sh, DARWIN_JOBS (MIT, see
+# NOTICE.md), with the same twenty labels. Nothing about them is GPU specific; what makes this
+# the software-render set is that Adreno740/AdrenoMetal are not in board.toml and the window
+# server is started with the library named in inject.conf.
+#
+# One label per line; '#' starts a comment. com.apple.wifid is deliberately absent: the radio is
+# not part of the acceptance (spec 6) and wifid only adds failed XPC lookups without a driver.
+com.apple.notifyd
+com.apple.cfprefsd.xpc.daemon
+com.apple.cfprefsd.xpc.daemon.system
+com.apple.logd
+com.apple.syslogd
+com.apple.distnoted.xpc.daemon
+com.apple.diagnosticd
+com.apple.fseventsd
+com.apple.containermanagerd
+com.apple.containermanagerd.system
+com.apple.runningboardd
+com.apple.backboardd
+com.apple.mobile.usermanagerd
+com.apple.mobilegestalt.xpc
+com.apple.lsd
+com.apple.powerd
+com.apple.analyticsd
+com.apple.logd_helper
+com.apple.iconservices.iconservicesagent
+com.apple.pluginkit.pkd
+com.apple.SpringBoard

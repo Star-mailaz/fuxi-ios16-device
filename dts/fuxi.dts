@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: BSD-3-Clause
+// Xiaomi 13 (fuxi, SM8550), GPU-free board description.
+//
+// The GPU nodes of the stock description are left out, not disabled: &gpu, &gmu, &gpu_smmu
+// and the zap-shader memory region belong to a path this board does not take. Everything
+// else is the same SM8550 SoC description sheng uses (sm8550-common/dts/sm8550.dtsi).
+//
+// Framebuffer: the GOP hands over a 1080 x 2400 BGRX buffer at 0xB0000000 with a row stride
+// of 1080 pixels. Both constants are measured on the device (unixnu-fuxi bring-up, spec 3.1)
+// and are the ones the CPU presentation path writes through; the Android side keeps its own
+// cont_splash_region at 0xb8000000, which is a different mode and not this buffer.
+/dts-v1/;
+/include/ "sm8550.dtsi"
+
+/ {
+    model = "Xiaomi 13";
+    compatible = "xiaomi,fuxi", "qcom,sm8550";
+
+    memory@80000000 {
+        device_type = "memory";
+        reg = <0 0x80000000 0 0x80000000>;
+    };
+
+    reserved-memory {
+        #address-cells = <2>;
+        #size-cells = <2>;
+        ranges;
+
+        framebuffer: framebuffer@b0000000 {
+            label = "fuxi-gop-framebuffer";
+            reg = <0 0xb0000000 0 0x9e3c00>;
+            no-map;
+        };
+
+        aop_cmd_db_mem: aop-cmd-db@81c60000 {
+            compatible = "qcom,cmd-db";
+            reg = <0 0x81c60000 0 0x20000>;
+            no-map;
+        };
+    };
+};
+
+// The scheduler runs the A510 cores as an E cluster and the others as a P cluster.
+&cpu0 { unixnu,cluster-type = "E"; };
+&cpu1 { unixnu,cluster-type = "E"; };
+&cpu2 { unixnu,cluster-type = "E"; };
+&cpu3 { unixnu,cluster-type = "P"; };
+&cpu4 { unixnu,cluster-type = "P"; };
+&cpu5 { unixnu,cluster-type = "P"; };
+&cpu6 { unixnu,cluster-type = "P"; };
+&cpu7 { unixnu,cluster-type = "P"; };
+
+&ufs { status = "okay"; };
+&ufsphy { status = "okay"; };
+
+// The GPU, its GMU and its SMMU are in the SoC description because every SM8550 board has them.
+// This board's profile does not use them, and saying so here is the configuration, not a source
+// edit: Adreno740/AdrenoMetal/Sm8550Platform are not in board.toml either, so no driver matches
+// these nodes whether they are enabled or not.
+&gpu { status = "disabled"; };
+&gmu { status = "disabled"; };
+&gpu_smmu { status = "disabled"; };

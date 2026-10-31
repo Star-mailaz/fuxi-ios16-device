@@ -1,0 +1,7 @@
+# fuxi board patches, applied last (device:patches/xnu/series).
+#
+# The sweet-derived bring-up series (ios-sweet 0001-0081 in the old tree) is not listed here
+# yet: it has to be re-derived against the 8796.141.3 tree layer by layer, which is what
+# userland/ and the kernel port in this repository are being rebuilt for. Keep this file
+# comment-only until the first patch of that series is actually in this directory; a line
+# that names a missing file stops the kernel build with a path error.
